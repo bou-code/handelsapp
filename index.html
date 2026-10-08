@@ -1,4 +1,5 @@
 <title>HandelsApp</title>
+<script src="https://unpkg.com/@zxing/library@0.19.3/umd/index.min.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 :root {
@@ -1104,16 +1105,34 @@ function openCamera(){
   });
 }
 function closeCamera(){
+  if(window._zxingReader){try{window._zxingReader.reset();}catch(e){}window._zxingReader=null;}
   if(camStream){camStream.getTracks().forEach(function(t){t.stop()});camStream=null}
   document.getElementById('cam-overlay').hidden=true;
   if(window._bcInt){clearInterval(window._bcInt);window._bcInt=null}
 }
 function startBarcodeDetect(v){
-  if(!('BarcodeDetector' in window)){showToast('BarcodeDetector API nicht verfügbar');return}
-  var det=new BarcodeDetector({formats:['ean_13','ean_8','qr_code','code_128','code_39']});
-  window._bcInt=setInterval(function(){
-    det.detect(v).then(function(codes){if(codes.length>0){closeCamera();scanBarcode(codes[0].rawValue)}}).catch(function(){});
-  },500);
+  if(window.ZXing){
+    var hints=new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+      ZXing.BarcodeFormat.EAN_13,ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.QR_CODE
+    ]);
+    var reader=new ZXing.BrowserMultiFormatReader(hints);
+    window._zxingReader=reader;
+    reader.decodeFromVideoElement(v).then(function(result){
+      if(result){closeCamera();scanBarcode(result.getText());}
+    }).catch(function(e){
+      if(e&&e.name!=='NotFoundException')showToast('Scanner-Fehler: '+e.message);
+    });
+  } else if('BarcodeDetector' in window){
+    var det=new BarcodeDetector({formats:['ean_13','ean_8','qr_code','code_128','code_39']});
+    window._bcInt=setInterval(function(){
+      det.detect(v).then(function(codes){if(codes.length>0){closeCamera();scanBarcode(codes[0].rawValue)}}).catch(function(){});
+    },500);
+  } else {
+    showToast('Scanner nicht verfügbar – Barcode manuell eingeben');
+  }
 }
 
 // INIT — warte auf DOM
