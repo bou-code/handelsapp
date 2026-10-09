@@ -290,7 +290,8 @@ body.rtl .topbar{flex-direction:row-reverse}
 <div class="tab-content" id="tab-inv">
   <div class="scanner-bar">
     <input type="text" id="barcode-inp" placeholder="Barcode + Enter..." onkeydown="if(event.key==='Enter'){scanBarcode(this.value);this.value=''}">
-    <button class="btn btn-blue" onclick="openCamera()">📷 Kamera</button>
+    <button class="btn btn-blue" onclick="openCamera()">📷 Live-Scan</button>
+    <label class="btn btn-blue" style="cursor:pointer">📸 Foto<input type="file" accept="image/*" capture="environment" id="barcode-photo-inp" style="display:none" onchange="scanPhoto(this)"></label>
   </div>
   <div id="inv-warn-banner"></div>
   <div class="stat-row" id="inv-stats"></div>
@@ -455,6 +456,7 @@ body.rtl .topbar{flex-direction:row-reverse}
   </div>
 </div>
 
+<div id="_tmp_scan_div" style="display:none"></div>
 <!-- CAMERA OVERLAY -->
 <div id="cam-overlay" hidden style="position:fixed;inset:0;background:#000d;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
   <div id="html5qr-scanner" style="width:min(88vw,400px);border-radius:12px;overflow:hidden"></div>
@@ -1086,6 +1088,24 @@ function scanBarcode(code){
     openInvModal(null);
     document.getElementById('inv-barcode').value=code;
     showToast('Barcode nicht gefunden — neuen Artikel anlegen');
+  }
+}
+// FOTO-SCAN für iOS
+function scanPhoto(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  input.value='';
+  if(window.Html5Qrcode){
+    var scanner=new Html5Qrcode('_tmp_scan_div');
+    scanner.scanFile(file,true).then(function(code){
+      scanner.clear();
+      scanBarcode(code);
+    }).catch(function(){
+      scanner.clear();
+      showToast('Barcode nicht erkannt – näher halten und nochmal');
+    });
+  } else {
+    showToast('Scanner-Bibliothek nicht geladen');
   }
 }
 var _html5Qr=null;
