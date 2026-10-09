@@ -1,5 +1,5 @@
 <title>HandelsApp</title>
-<script src="https://unpkg.com/@zxing/library@0.19.3/umd/index.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
 :root {
@@ -456,8 +456,8 @@ body.rtl .topbar{flex-direction:row-reverse}
 </div>
 
 <!-- CAMERA OVERLAY -->
-<div id="cam-overlay" hidden>
-  <video id="cam-video" autoplay playsinline></video>
+<div id="cam-overlay" hidden style="position:fixed;inset:0;background:#000d;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+  <div id="html5qr-scanner" style="width:min(88vw,400px);border-radius:12px;overflow:hidden"></div>
   <button class="btn btn-red" onclick="closeCamera()">✕ Schließen</button>
 </div>
 
@@ -1088,51 +1088,35 @@ function scanBarcode(code){
     showToast('Barcode nicht gefunden — neuen Artikel anlegen');
   }
 }
+var _html5Qr=null;
 function openCamera(){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showToast('Kamera nicht verfügbar');return}
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(stream){
-    camStream=stream;
-    var v=document.getElementById('cam-video');v.srcObject=stream;
-    document.getElementById('cam-overlay').hidden=false;
-    startBarcodeDetect(v);
-  }).catch(function(e){
-    var msg=e.message||'';
-    if(msg.indexOf('not allowed')>=0||msg.indexOf('denied')>=0||msg.indexOf('permission')>=0||msg.indexOf('insecure')>=0){
-      showToast('📷 Kamera: Nur über HTTPS verfügbar (nicht in lokaler Datei). Barcode bitte manuell eingeben.');
-    } else {
-      showToast('Kamera nicht verfügbar: '+msg);
-    }
+  var overlay=document.getElementById('cam-overlay');
+  overlay.hidden=false;
+  if(_html5Qr){try{_html5Qr.stop().catch(function(){});}catch(e){}_html5Qr=null;}
+  _html5Qr=new Html5Qrcode('html5qr-scanner');
+  _html5Qr.start(
+    {facingMode:'environment'},
+    {fps:10,qrbox:{width:250,height:150},formatsToSupport:[
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ]},
+    function(code){closeCamera();scanBarcode(code);},
+    function(){}
+  ).catch(function(e){
+    overlay.hidden=true;
+    showToast('Kamera nicht verfügbar: '+(e.message||e));
   });
 }
 function closeCamera(){
-  if(window._zxingReader){try{window._zxingReader.reset();}catch(e){}window._zxingReader=null;}
-  if(camStream){camStream.getTracks().forEach(function(t){t.stop()});camStream=null}
-  document.getElementById('cam-overlay').hidden=true;
-  if(window._bcInt){clearInterval(window._bcInt);window._bcInt=null}
-}
-function startBarcodeDetect(v){
-  if(window.ZXing){
-    var hints=new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
-      ZXing.BarcodeFormat.EAN_13,ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.QR_CODE
-    ]);
-    var reader=new ZXing.BrowserMultiFormatReader(hints);
-    window._zxingReader=reader;
-    reader.decodeFromVideoElement(v).then(function(result){
-      if(result){closeCamera();scanBarcode(result.getText());}
-    }).catch(function(e){
-      if(e&&e.name!=='NotFoundException')showToast('Scanner-Fehler: '+e.message);
-    });
-  } else if('BarcodeDetector' in window){
-    var det=new BarcodeDetector({formats:['ean_13','ean_8','qr_code','code_128','code_39']});
-    window._bcInt=setInterval(function(){
-      det.detect(v).then(function(codes){if(codes.length>0){closeCamera();scanBarcode(codes[0].rawValue)}}).catch(function(){});
-    },500);
-  } else {
-    showToast('Scanner nicht verfügbar – Barcode manuell eingeben');
+  var overlay=document.getElementById('cam-overlay');
+  overlay.hidden=true;
+  if(_html5Qr){
+    _html5Qr.stop().then(function(){_html5Qr.clear();_html5Qr=null;}).catch(function(){_html5Qr=null;});
   }
+  if(camStream){camStream.getTracks().forEach(function(t){t.stop()});camStream=null;}
 }
 
 // INIT — warte auf DOM
