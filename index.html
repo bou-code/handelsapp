@@ -351,7 +351,7 @@ body.rtl .topbar{flex-direction:row-reverse}
       <input type="text" id="inv-emoji-inp" placeholder="Emoji Fallback z.B. 📦" oninput="prevInvImg()" style="margin-top:4px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 9px;color:var(--text);font-size:12px">
     </div>
     <div class="form-row">
-      <div class="form-group"><label>Barcode</label><input type="text" id="inv-barcode"></div>
+      <div class="form-group"><label>Barcode</label><div style="display:flex;gap:8px;align-items:center"><input type="text" id="inv-barcode" style="flex:1"><label class="btn btn-blue btn-sm" style="cursor:pointer;white-space:nowrap">📸 Scan<input type="file" accept="image/*" capture="environment" style="display:none" onchange="scanPhotoToField(this,'inv-barcode')"></label></div></div>
       <div class="form-group"><label>Name *</label><input type="text" id="inv-name" required></div>
     </div>
     <div class="form-row">
@@ -1092,6 +1092,9 @@ function scanBarcode(code){
 }
 // FOTO-SCAN für iOS
 function scanPhoto(input){
+  scanPhotoToField(input,null);
+}
+function scanPhotoToField(input,fieldId){
   if(!input.files||!input.files[0])return;
   var file=input.files[0];
   input.value='';
@@ -1099,7 +1102,12 @@ function scanPhoto(input){
     var scanner=new Html5Qrcode('_tmp_scan_div');
     scanner.scanFile(file,true).then(function(code){
       scanner.clear();
-      scanBarcode(code);
+      if(fieldId){
+        document.getElementById(fieldId).value=code;
+        showToast('Barcode: '+code);
+      } else {
+        scanBarcode(code);
+      }
     }).catch(function(){
       scanner.clear();
       showToast('Barcode nicht erkannt – näher halten und nochmal');
